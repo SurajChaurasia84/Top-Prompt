@@ -3,6 +3,7 @@ import '../developer_info_screen.dart';
 import '../history_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../constants/app_theme.dart';
 import '../../services/favorites_service.dart';
 
 class MenuTab extends StatelessWidget {
@@ -69,7 +70,7 @@ class MenuTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
@@ -194,7 +195,7 @@ class MenuTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
@@ -316,9 +317,12 @@ class MenuTab extends StatelessWidget {
                     context,
                     icon: Icons.dark_mode_outlined,
                     title: 'Dark Mode',
-                    trailing: Switch(
+                    trailing: Switch.adaptive(
                       value: isDark,
-                      activeTrackColor: primaryColor,
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: AppColors.primaryRed,
+                      inactiveThumbColor: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      inactiveTrackColor: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
                       onChanged: (bool value) {
                         onThemeChanged(value ? ThemeMode.dark : ThemeMode.light);
                       },
