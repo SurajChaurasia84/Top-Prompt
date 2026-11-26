@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/app_theme.dart';
 import '../services/history_service.dart';
 import '../services/favorites_service.dart';
 import 'prompt_view_screen.dart';
@@ -86,7 +87,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightSurface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -144,7 +145,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final primaryColor = Theme.of(context).primaryColor;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF9F9F9),
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
         title: const Text(
           'All History',
@@ -159,7 +160,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         actions: [
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: isDark ? Colors.white : Colors.black87),
-            color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+            color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -254,7 +255,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+                              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
