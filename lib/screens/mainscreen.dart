@@ -250,7 +250,7 @@ class _MainScreenState extends State<MainScreen> {
                   _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
                   _buildNavItem(1, Icons.search_outlined, Icons.search, 'Search'),
                   _buildNavItem(2, Icons.favorite_border, Icons.favorite, 'Save'),
-                  _buildNavItem(3, Icons.grid_view_outlined, Icons.grid_view, 'Library'),
+                  _buildNavItem(3, Icons.grid_view_outlined, Icons.grid_view, 'Menu'),
                 ],
               ),
             ),
