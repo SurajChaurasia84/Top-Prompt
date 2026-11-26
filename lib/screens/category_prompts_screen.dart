@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/ad_constants.dart';
+import '../constants/app_theme.dart';
 import 'tabs/home_tab.dart';
 import '../../../services/favorites_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -74,7 +75,7 @@ class _CategoryPromptsScreenState extends State<CategoryPromptsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF9F9F9),
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
         title: Text(
           widget.categoryName,
@@ -110,7 +111,7 @@ class _CategoryPromptsScreenState extends State<CategoryPromptsScreen> {
               alignment: Alignment.center,
               width: _bannerAd!.size.width.toDouble(),
               height: _bannerAd!.size.height.toDouble(),
-              color: isDark ? const Color(0xFF0F0F0F) : Colors.white,
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               child: AdWidget(ad: _bannerAd!),
             )
           : null,
