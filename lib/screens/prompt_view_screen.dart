@@ -1,0 +1,1178 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/prompt_data_service.dart';
+import '../services/favorites_service.dart';
+import '../services/history_service.dart';
+import 'package:external_app_launcher/external_app_launcher.dart';
+import '../constants/ad_constants.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+class PromptViewScreen extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final String docId;
+
+  const PromptViewScreen({
+    super.key,
+    required this.data,
+    required this.docId,
+  });
+
+  @override
+  State<PromptViewScreen> createState() => _PromptViewScreenState();
+}
+
+class _PromptViewScreenState extends State<PromptViewScreen> with SingleTickerProviderStateMixin {
+  bool _isFavorite = false;
+  bool _isGenerating = false;
+  bool _showPrompt = false;
+  bool _isLoadingAd = false;
+  InterstitialAd? _interstitialAd;
+  BannerAd? _bannerAd;
+  bool _isBannerAdLoaded = false;
+  late AnimationController _typewriterController;
+  String _currentTypedText = "";
+
+  List<Map<String, dynamic>> _suggestedPrompts = [];
+  Set<String> _favorites = {};
+  bool _isLoadingSuggestions = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentPrompt = {
+      'docId': widget.docId,
+      ...widget.data,
+    };
+    FavoritesService.cachePrompts([currentPrompt]);
+    FavoritesService.favoritesNotifier.addListener(_onFavoritesChanged);
+    _checkFavorite();
+    _loadFavorites();
+    _fetchSuggestions();
+    _typewriterController = AnimationController(
+      vsync: this,
+    );
+    _bannerAd = BannerAd(
+      adUnitId: AdConstants.bannerAdUnitId,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          if (mounted) {
+            setState(() {
+              _isBannerAdLoaded = true;
+            });
+          }
+        },
+        onAdFailedToLoad: (ad, err) {
+          debugPrint('PromptViewScreen BannerAd failed to load: $err');
+          ad.dispose();
+        },
+      ),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    FavoritesService.favoritesNotifier.removeListener(_onFavoritesChanged);
+    _typewriterController.dispose();
+    _interstitialAd?.dispose();
+    _bannerAd?.dispose();
+    super.dispose();
+  }
+
+  void _onFavoritesChanged() {
+    if (mounted) {
+      final notifierValue = FavoritesService.favoritesNotifier.value;
+      setState(() {
+        _isFavorite = notifierValue.contains(widget.docId);
+        _favorites = notifierValue;
+      });
+    }
+  }
+
+  Future<void> _checkFavorite() async {
+    final fav = await FavoritesService.isFavorite(widget.docId);
+    if (mounted) setState(() => _isFavorite = fav);
+  }
+
+  Future<void> _loadFavorites() async {
+    final favs = await FavoritesService.getFavorites();
+    if (mounted) {
+      setState(() => _favorites = favs);
+    }
+  }
+
+  Future<void> _toggleSuggestionFavorite(String docId) async {
+    await FavoritesService.toggleFavorite(docId);
+  }
+
+  Future<void> _fetchSuggestions() async {
+    if (!mounted) return;
+    setState(() => _isLoadingSuggestions = true);
+
+    try {
+      final currentType = widget.data['type'] as String? ?? widget.data['category'] as String? ?? '';
+      final all = FavoritesService.getCachedPrompts().isNotEmpty
+          ? FavoritesService.getCachedPrompts()
+          : await PromptDataService.fetchAllPrompts();
+
+      final List<Map<String, dynamic>> suggestions = [];
+      for (final doc in all) {
+        if (doc['docId'] == widget.docId) continue;
+        final docType = (doc['type'] ?? doc['category'] ?? '').toString().toLowerCase();
+        if (currentType.isEmpty || docType == currentType.toLowerCase()) {
+          suggestions.add(doc);
+        }
+      }
+
+      if (suggestions.isEmpty) {
+        suggestions.addAll(all.where((d) => d['docId'] != widget.docId).take(6));
+      }
+
+      // Sort newest first
+      suggestions.sort((a, b) {
+        final aTime = a['createdAt'] is int ? a['createdAt'] as int : 0;
+        final bTime = b['createdAt'] is int ? b['createdAt'] as int : 0;
+        return bTime.compareTo(aTime);
+      });
+
+      if (mounted) {
+        FavoritesService.cachePrompts(suggestions);
+        setState(() {
+          _suggestedPrompts = suggestions;
+          _isLoadingSuggestions = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Failed to fetch suggestions: $e");
+      if (mounted) {
+        setState(() => _isLoadingSuggestions = false);
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> _getLeftColumnSuggestions() {
+    final left = <Map<String, dynamic>>[];
+    for (var i = 0; i < _suggestedPrompts.length; i++) {
+      if (i.isEven) left.add(_suggestedPrompts[i]);
+    }
+    return left;
+  }
+
+  List<Map<String, dynamic>> _getRightColumnSuggestions() {
+    final right = <Map<String, dynamic>>[];
+    for (var i = 0; i < _suggestedPrompts.length; i++) {
+      if (i.isOdd) right.add(_suggestedPrompts[i]);
+    }
+    return right;
+  }
+
+  Future<void> _toggleFavorite() async {
+    await FavoritesService.toggleFavorite(widget.docId);
+    final fav = await FavoritesService.isFavorite(widget.docId);
+    if (mounted) {
+      setState(() => _isFavorite = fav);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              fav ? 'Added to Favorites ❤️' : 'Removed from Favorites'),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _launchApp({
+    required String androidPackage,
+    required String iosUrlScheme,
+    required String appName,
+  }) async {
+    bool isInstalled = false;
+    try {
+      isInstalled = await LaunchApp.isAppInstalled(
+        androidPackageName: androidPackage,
+        iosUrlScheme: iosUrlScheme,
+      );
+    } catch (e) {
+      debugPrint("Error checking app installation: $e");
+    }
+
+    bool success = false;
+    if (isInstalled) {
+      try {
+        await LaunchApp.openApp(
+          androidPackageName: androidPackage,
+          iosUrlScheme: iosUrlScheme,
+          openStore: false,
+        );
+        success = true;
+      } catch (e) {
+        debugPrint("Error opening app: $e");
+      }
+    }
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Unable to open $appName"),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _generatePrompt() async {
+    if (_isGenerating) return;
+
+    setState(() {
+      _isGenerating = true;
+      _showPrompt = false;
+      _currentTypedText = "";
+    });
+
+    _typewriterController.reset();
+
+    // Simulate prompt generation processing/loading
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    final prompt = widget.data['prompt'] as String? ?? '';
+
+    if (mounted) {
+      setState(() {
+        _isGenerating = false;
+        _showPrompt = true;
+      });
+
+      final durationMs = (prompt.length * 40).clamp(1000, 5000);
+      _typewriterController.duration = Duration(milliseconds: durationMs);
+
+      final Animation<double> typingAnimation = Tween<double>(
+        begin: 0.0,
+        end: prompt.length.toDouble(),
+      ).animate(CurvedAnimation(
+        parent: _typewriterController,
+        curve: Curves.easeOut,
+      ));
+
+      void listener() {
+        if (mounted) {
+          setState(() {
+            _currentTypedText = prompt.substring(0, typingAnimation.value.round());
+          });
+        }
+      }
+
+      typingAnimation.addListener(listener);
+
+      _typewriterController.forward().then((_) {
+        typingAnimation.removeListener(listener);
+      });
+    }
+  }
+
+  Future<void> _handleCopyPromptWithAd(String imageUrl) async {
+    if (_isLoadingAd) return;
+
+    setState(() {
+      _isLoadingAd = true;
+    });
+
+    final prompt = widget.data['prompt'] as String? ?? '';
+
+    void executeCopyAction() async {
+      await Clipboard.setData(ClipboardData(text: prompt));
+      await HistoryService.saveToHistory(prompt, imageUrl: imageUrl);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Prompt copied to clipboard!'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+
+    InterstitialAd.load(
+      adUnitId: AdConstants.interstitialAdUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _isLoadingAd = false;
+          });
+
+          _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (InterstitialAd ad) {
+              ad.dispose();
+              _interstitialAd = null;
+              executeCopyAction();
+            },
+            onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+              ad.dispose();
+              _interstitialAd = null;
+              executeCopyAction();
+            },
+          );
+
+          _interstitialAd!.show();
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          debugPrint('InterstitialAd failed to load: $error');
+          if (mounted) {
+            setState(() {
+              _isLoadingAd = false;
+            });
+            executeCopyAction();
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _launchAppWithAd({
+    required String androidPackage,
+    required String iosUrlScheme,
+    required String appName,
+    required String imageUrl,
+  }) async {
+    final prompt = widget.data['prompt'] as String? ?? '';
+    // Prefill prompt by copying to clipboard
+    await Clipboard.setData(ClipboardData(text: prompt));
+    await HistoryService.saveToHistory(prompt, imageUrl: imageUrl);
+
+    if (_showPrompt) {
+      // Direct open if generated
+      await _launchApp(
+        androidPackage: androidPackage,
+        iosUrlScheme: iosUrlScheme,
+        appName: appName,
+      );
+      return;
+    }
+
+    if (_isLoadingAd) return;
+
+    setState(() {
+      _isLoadingAd = true;
+    });
+
+    InterstitialAd.load(
+      adUnitId: AdConstants.interstitialAdUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _isLoadingAd = false;
+          });
+
+          _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (InterstitialAd ad) async {
+              ad.dispose();
+              _interstitialAd = null;
+              await _launchApp(
+                androidPackage: androidPackage,
+                iosUrlScheme: iosUrlScheme,
+                appName: appName,
+              );
+            },
+            onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) async {
+              ad.dispose();
+              _interstitialAd = null;
+              await _launchApp(
+                androidPackage: androidPackage,
+                iosUrlScheme: iosUrlScheme,
+                appName: appName,
+              );
+            },
+          );
+
+          _interstitialAd!.show();
+        },
+        onAdFailedToLoad: (LoadAdError error) async {
+          debugPrint('InterstitialAd failed to load: $error');
+          if (mounted) {
+            setState(() {
+              _isLoadingAd = false;
+            });
+            await _launchApp(
+              androidPackage: androidPackage,
+              iosUrlScheme: iosUrlScheme,
+              appName: appName,
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    final title = (widget.data['title'] as String?)?.trim() ?? 'Untitled';
+    final imageUrl = (widget.data['imageUrl'] as String?)?.trim() ?? '';
+
+    return Scaffold(
+      backgroundColor:
+          isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF9F9F9),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          // Favorite
+          IconButton(
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: Icon(
+                _isFavorite ? Icons.favorite : Icons.favorite_border,
+                key: ValueKey(_isFavorite),
+                color: _isFavorite ? Colors.red : null,
+              ),
+            ),
+            onPressed: _toggleFavorite,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Stack(
+        children: [
+          SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Image ──
+                if (imageUrl.isNotEmpty) ...[
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ImagePreviewScreen(
+                            imageUrl: imageUrl,
+                            title: title,
+                          ),
+                        ),
+                      );
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.network(
+                        imageUrl,
+                        width: double.infinity,
+                        fit: BoxFit.fitWidth,
+                        loadingBuilder: (ctx, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            color: isDark
+                                ? const Color(0xFF2A2A2A)
+                                : Colors.grey[200],
+                            padding: const EdgeInsets.symmetric(vertical: 40),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFFFF0000)),
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (ctx, err, st) => Container(
+                          color: isDark
+                              ? const Color(0xFF2A2A2A)
+                              : Colors.grey[200],
+                          padding: const EdgeInsets.symmetric(vertical: 40),
+                          child: const Center(
+                            child: Icon(Icons.broken_image_outlined,
+                                size: 48, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // ── Generate & Prompt Container Switcher ──
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    );
+                  },
+                  child: _isGenerating
+                      ? Column(
+                          key: const ValueKey('prompt_card_loading'),
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              height: 120,
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                                ),
+                              ),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _showPrompt
+                          ? Column(
+                              key: const ValueKey('prompt_card'),
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                                    ),
+                                  ),
+                                  child: SingleChildScrollView(
+                                    physics: const BouncingScrollPhysics(),
+                                    child: Text.rich(
+                                      TextSpan(
+                                        children: [
+                                          TextSpan(text: _currentTypedText),
+                                          if (_typewriterController.isAnimating)
+                                            WidgetSpan(
+                                              alignment: PlaceholderAlignment.middle,
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(left: 2),
+                                                child: _BlinkingCursor(isDark: isDark),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        height: 1.6,
+                                        color: isDark ? Colors.grey[300] : const Color(0xFF333333),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                // Copy Prompt Button
+                                ElevatedButton.icon(
+                                  onPressed: () => _handleCopyPromptWithAd(imageUrl),
+                                  icon: const Icon(Icons.copy_rounded, size: 20),
+                                  label: const Text(
+                                    'Copy Prompt',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              key: const ValueKey('generate_button_container'),
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: _generatePrompt,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: const Text(
+                                    'Generate Prompt',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                ),
+
+                const SizedBox(height: 12),
+                // Follow Me & How To Use Buttons Row (Shown at all times)
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final String urlString = FavoritesService.followMeLink.trim();
+                          if (urlString.isEmpty) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Link not available'),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                          try {
+                            final Uri uri = Uri.parse(urlString);
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Could not open follow link.'),
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            debugPrint("Error launching follow link: $e");
+                          }
+                        },
+                        icon: const Icon(Icons.person_add_outlined, size: 18),
+                        label: const Text(
+                          'Follow Me',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final String link = (widget.data['link'] as String?)?.trim() ?? '';
+                          final String urlString = link.isNotEmpty ? link : FavoritesService.howToUseLink.trim();
+                          if (urlString.isEmpty) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Link not available'),
+                                ),
+                              );
+                            }
+                            return;
+                          }
+                          try {
+                            final Uri uri = Uri.parse(urlString);
+                            if (await canLaunchUrl(uri)) {
+                              await launchUrl(uri, mode: LaunchMode.externalApplication);
+                            } else {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Could not open tutorial link.'),
+                                  ),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            debugPrint("Error launching how to use link: $e");
+                          }
+                        },
+                        icon: const Icon(Icons.help_outline_rounded, size: 18),
+                        label: const Text(
+                          'How To Use',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Try ChatGPT & Try Gemini Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _launchAppWithAd(
+                          androidPackage: 'com.openai.chatgpt',
+                          iosUrlScheme: 'chatgpt://',
+                          appName: 'ChatGPT',
+                          imageUrl: imageUrl,
+                        ),
+                        label: const Text(
+                          'Try ChatGPT',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _launchAppWithAd(
+                          androidPackage: 'com.google.android.apps.bard',
+                          iosUrlScheme: 'googlegemini://',
+                          appName: 'Gemini',
+                          imageUrl: imageUrl,
+                        ),
+                        label: const Text(
+                          'Try Gemini',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor.withValues(alpha: 0.5)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                const Text(
+                  'More Like This',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Suggestions Grid
+                _isLoadingSuggestions
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0000)),
+                          ),
+                        ),
+                      )
+                    : _suggestedPrompts.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Text(
+                                'No similar prompts found',
+                                style: TextStyle(
+                                  color: Colors.grey[500],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Left column
+                              Expanded(
+                                child: Column(
+                                  children: _getLeftColumnSuggestions()
+                                      .map((doc) => _SuggestionCard(
+                                            doc: doc,
+                                            isFavorite: _favorites.contains(doc['docId']),
+                                            onToggleFavorite: _toggleSuggestionFavorite,
+                                            onRefresh: _loadFavorites,
+                                          ))
+                                      .toList(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Right column
+                              Expanded(
+                                child: Column(
+                                  children: _getRightColumnSuggestions()
+                                      .map((doc) => _SuggestionCard(
+                                            doc: doc,
+                                            isFavorite: _favorites.contains(doc['docId']),
+                                            onToggleFavorite: _toggleSuggestionFavorite,
+                                            onRefresh: _loadFavorites,
+                                          ))
+                                      .toList(),
+                                ),
+                              ),
+                            ],
+                          ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      if (_isLoadingAd)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black54,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Loading Ad...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: _isBannerAdLoaded && _bannerAd != null
+          ? Container(
+              alignment: Alignment.center,
+              width: _bannerAd!.size.width.toDouble(),
+              height: _bannerAd!.size.height.toDouble(),
+              color: isDark ? const Color(0xFF0F0F0F) : Colors.white,
+              child: AdWidget(ad: _bannerAd!),
+            )
+          : null,
+    );
+  }
+}
+
+class _BlinkingCursor extends StatefulWidget {
+  final bool isDark;
+  const _BlinkingCursor({required this.isDark});
+
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor> with SingleTickerProviderStateMixin {
+  late AnimationController _cursorController;
+
+  @override
+  void initState() {
+    super.initState();
+    _cursorController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _cursorController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _cursorController,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _cursorController.value > 0.5 ? 1.0 : 0.0,
+          child: Container(
+            width: 2,
+            height: 14,
+            color: widget.isDark ? Colors.redAccent : Colors.red,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SuggestionCard extends StatelessWidget {
+  final Map<String, dynamic> doc;
+  final bool isFavorite;
+  final Future<void> Function(String docId) onToggleFavorite;
+  final VoidCallback onRefresh;
+
+  const _SuggestionCard({
+    required this.doc,
+    required this.isFavorite,
+    required this.onToggleFavorite,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final docId = doc['docId'] as String;
+    final imageUrl = (doc['imageUrl'] as String?)?.trim() ?? '';
+
+    // Build data map without the 'docId'/'category' helper fields
+    final data = Map<String, dynamic>.from(doc)
+      ..remove('docId')
+      ..remove('category');
+
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PromptViewScreen(data: data, docId: docId),
+          ),
+        );
+        onRefresh();
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            // ── Image ──
+            if (imageUrl.isNotEmpty)
+              AspectRatio(
+                aspectRatio: 1.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (ctx, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      color: isDark
+                          ? const Color(0xFF2A2A2A)
+                          : Colors.grey[100],
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFFFF0000)),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (ctx, err, st) => Container(
+                    color: isDark
+                        ? const Color(0xFF2A2A2A)
+                        : Colors.grey[200],
+                    height: 120,
+                    child: const Center(
+                      child: Icon(Icons.broken_image_outlined,
+                          color: Colors.grey, size: 28),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                height: 120,
+                color: isDark
+                    ? const Color(0xFF2A2A2A)
+                    : Colors.grey[200],
+                child: const Center(
+                  child: Icon(Icons.image_outlined,
+                      color: Colors.grey, size: 28),
+                ),
+              ),
+
+            // ── Heart Overlay in Top Corner ──
+            Positioned(
+              top: 8,
+              right: 8,
+              child: GestureDetector(
+                onTap: () => onToggleFavorite(docId),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    shape: BoxShape.circle,
+                  ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    transitionBuilder: (child, anim) =>
+                        ScaleTransition(scale: anim, child: child),
+                    child: Icon(
+                      isFavorite
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      key: ValueKey(isFavorite),
+                      size: 18,
+                      color: isFavorite ? Colors.red : Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ImagePreviewScreen extends StatelessWidget {
+  final String imageUrl;
+  final String title;
+
+  const ImagePreviewScreen({
+    super.key,
+    required this.imageUrl,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Pinch-to-zoom interactive viewer
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white70,
+                    size: 64,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Top bar overlay with close icon and title
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            left: 10,
+            right: 10,
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
