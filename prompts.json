@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "prompts": [
+    {
+      "id": 3,
+      "title": "Neon Cyberpunk Street",
+      "categories": ["Cyberpunk", "Night", "Urban"],
+      "prompt": "A futuristic cyberpunk street at night with neon pink and blue signs reflecting on wet pavement, hyper-realistic, 8K, cinematic lighting, rain-soaked streets, dark atmosphere",
+      "image": "https://YOUR_USERNAME.github.io/YOUR_REPO/images/neon-cyberpunk.webp"
+    },
+    {
+      "id": 2,
+      "title": "Golden Hour Forest",
+      "categories": ["Nature", "Landscape"],
+      "prompt": "Magical golden hour in an ancient forest, shafts of warm sunlight filtering through towering trees, misty atmosphere, photorealistic, ultra-detailed foliage, peaceful mood",
+      "image": "https://YOUR_USERNAME.github.io/YOUR_REPO/images/golden-forest.webp"
+    },
+    {
+      "id": 1,
+      "title": "Retro Saree Portrait",
+      "categories": ["Retro", "Portrait"],
+      "prompt": "Create a vintage 90s style portrait of a woman in a red saree, film grain texture, warm tones, Bollywood aesthetic, soft bokeh background, analog photography look",
+      "image": "https://YOUR_USERNAME.github.io/YOUR_REPO/images/retro-saree.webp"
+    }
+  ]
+}
