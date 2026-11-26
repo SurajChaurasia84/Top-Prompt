@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/splash_screen.dart';
+import 'screens/mainscreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,7 +93,7 @@ class _MyAppState extends State<MyApp> {
             ),
           ),
           
-          home: SplashScreen(
+          home: MainScreen(
             themeMode: currentMode,
             onThemeChanged: (mode) async {
               MyApp.themeNotifier.value = mode;
