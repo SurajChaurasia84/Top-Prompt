@@ -1,0 +1,45 @@
+name: top_prompt
+description: "AI photo-editing prompts for popular AI tools."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  provider: ^6.1.2
+
+  # Networking & caching
+  http: ^1.2.2
+  cached_network_image: ^3.4.1
+
+  # Local storage
+  shared_preferences: ^2.3.2
+
+  # UI extras
+  shimmer: ^3.0.0
+  flutter_staggered_grid_view: ^0.7.0
+
+  # Share & clipboard
+  share_plus: ^10.0.2
+
+  # Ads
+  google_mobile_ads: ^5.1.0
+
+  # Utilities
+  url_launcher: ^6.3.0
+  external_app_launcher: ^4.0.4
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
