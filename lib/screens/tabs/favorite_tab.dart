@@ -221,7 +221,7 @@ class _FavoriteTabState extends State<FavoriteTab> {
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
+            padding: const EdgeInsets.fromLTRB(3, 8, 3, 100),
             sliver: SliverToBoxAdapter(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,7 +237,7 @@ class _FavoriteTabState extends State<FavoriteTab> {
                           .toList(),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 5),
                   Expanded(
                     child: Column(
                       children: right
@@ -292,7 +292,7 @@ class _FavCard extends StatelessWidget {
         onRefresh();
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
           borderRadius: BorderRadius.circular(16),
