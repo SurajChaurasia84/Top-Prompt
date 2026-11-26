@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../constants/ad_constants.dart';
+import '../../constants/app_theme.dart';
 import '../../services/prompt_data_service.dart';
 import '../prompt_view_screen.dart';
 import '../../services/favorites_service.dart';
@@ -332,17 +333,22 @@ class _PromptGridLoaderState extends State<_PromptGridLoader> {
           // ── Category chips ──
           Padding(
             padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
             child: SizedBox(
-              height: 36,
+              height: 30,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
                 itemCount: cats.length,
                 itemBuilder: (context, index) {
                   final cat = cats[index];
+                  final isSelected = cat.toLowerCase() == widget.activeFilter.toLowerCase();
                   return GestureDetector(
                     onTap: () {
+                      widget.onFilterChange(cat);
+                      if (cat.toLowerCase() == 'trending') {
+                        return;
+                      }
                       final categoryDocs = _allDocs.where((d) {
                         final type = d['type']?.toString().toLowerCase() ?? '';
                         final category = d['category']?.toString().toLowerCase() ?? '';
@@ -353,30 +359,39 @@ class _PromptGridLoaderState extends State<_PromptGridLoader> {
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.only(right: 8),
+                      margin: const EdgeInsets.only(right: 6),
                       alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
+                          horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF2A2A2A)
-                            : Colors.grey[200],
-                        borderRadius: BorderRadius.circular(20),
+                        color: isSelected
+                            ? AppColors.primaryRed
+                            : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isDark
-                              ? Colors.grey[700]!
-                              : Colors.grey[300]!,
+                          color: isSelected
+                              ? AppColors.primaryRed
+                              : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
                           width: 1,
                         ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.primaryRed.withValues(alpha: 0.25),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1.5),
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Text(
                         cat,
                         style: TextStyle(
-                          color: isDark
-                              ? Colors.grey[300]
-                              : Colors.grey[700],
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                          fontSize: 11.5,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                         ),
                       ),
                     ),
@@ -584,7 +599,7 @@ class _PinterestGridState extends State<PinterestGrid> {
             child: widget.header!,
           ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+          padding: const EdgeInsets.fromLTRB(3, 4, 3, 20),
           sliver: SliverToBoxAdapter(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -601,7 +616,7 @@ class _PinterestGridState extends State<PinterestGrid> {
                         .toList(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 5),
                 Expanded(
                   child: Column(
                     children: right
@@ -687,7 +702,7 @@ class PromptCard extends StatelessWidget {
         onRefreshFavorites();
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -851,7 +866,7 @@ class TrendingCard extends StatelessWidget {
                         loadingBuilder: (ctx, child, progress) {
                           if (progress == null) return child;
                           return Container(
-                            color: isDark ? const Color(0xFF1F1F1F) : Colors.grey[200],
+                            color: isDark ? AppColors.darkSurface : Colors.grey[200],
                             child: const Center(
                               child: SizedBox(
                                 width: 20,
@@ -865,7 +880,7 @@ class TrendingCard extends StatelessWidget {
                           );
                         },
                         errorBuilder: (ctx, err, st) => Container(
-                          color: isDark ? const Color(0xFF1F1F1F) : Colors.grey[200],
+                          color: isDark ? AppColors.darkSurface : Colors.grey[200],
                           child: Icon(
                             Icons.image_outlined,
                             color: isDark ? Colors.grey[700] : Colors.grey[400],
@@ -874,7 +889,7 @@ class TrendingCard extends StatelessWidget {
                         ),
                       )
                     : Container(
-                        color: isDark ? const Color(0xFF1F1F1F) : Colors.grey[200],
+                        color: isDark ? AppColors.darkSurface : Colors.grey[200],
                         child: Icon(
                           Icons.image_outlined,
                           color: isDark ? Colors.grey[700] : Colors.grey[400],
