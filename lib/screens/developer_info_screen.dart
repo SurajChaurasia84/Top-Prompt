@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants/app_theme.dart';
 
 class DeveloperInfoScreen extends StatelessWidget {
   const DeveloperInfoScreen({super.key});
@@ -39,7 +40,7 @@ class DeveloperInfoScreen extends StatelessWidget {
                           width: 100,
                           height: 100,
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+                            color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
