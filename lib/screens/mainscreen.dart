@@ -6,6 +6,7 @@ import 'tabs/favorite_tab.dart';
 import 'tabs/menu_tab.dart';
 import '../services/favorites_service.dart';
 import '../constants/ad_constants.dart';
+import '../constants/app_theme.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class MainScreen extends StatefulWidget {
@@ -146,30 +147,44 @@ class _MainScreenState extends State<MainScreen> {
                 systemOverlayStyle: overlayStyle,
                 leading: null,
                 title: _currentIndex == 1
-                    ? TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search prompts...',
-                          border: InputBorder.none,
-                          hintStyle: TextStyle(
-                            color: isDark ? Colors.grey[800] : Colors.grey[300],
-                            fontSize: 16,
-                          ),
-                          prefixIcon: Icon(
-                            Icons.search,
-                            color: isDark ? Colors.grey[700] : Colors.grey[400],
-                            size: 20,
+                    ? Container(
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurface,
+                          borderRadius: BorderRadius.circular(21),
+                          border: Border.all(
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                            width: 1,
                           ),
                         ),
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black87,
-                          fontSize: 16,
+                        child: TextField(
+                          controller: _searchController,
+                          textAlignVertical: TextAlignVertical.center,
+                          decoration: InputDecoration(
+                            hintText: 'Search prompts...',
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            border: InputBorder.none,
+                            hintStyle: TextStyle(
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              size: 20,
+                            ),
+                          ),
+                          style: TextStyle(
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                            fontSize: 14,
+                          ),
+                          onChanged: (val) {
+                            setState(() {
+                              _searchQuery = val;
+                            });
+                          },
                         ),
-                        onChanged: (val) {
-                          setState(() {
-                            _searchQuery = val;
-                          });
-                        },
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,7 +211,10 @@ class _MainScreenState extends State<MainScreen> {
                 actions: [
                   if (_currentIndex == 1 && _searchQuery.isNotEmpty) ...[
                     IconButton(
-                      icon: const Icon(Icons.clear),
+                      icon: Icon(
+                        Icons.clear,
+                        color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                      ),
                       onPressed: () {
                         _searchController.clear();
                         setState(() {
@@ -225,15 +243,15 @@ class _MainScreenState extends State<MainScreen> {
                 alignment: Alignment.center,
                 width: _bannerAd!.size.width.toDouble(),
                 height: _bannerAd!.size.height.toDouble(),
-                color: isDark ? const Color(0xFF0F0F0F) : Colors.white,
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                 child: AdWidget(ad: _bannerAd!),
               ),
             Container(
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F0F0F) : Colors.white,
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                 border: Border(
                   top: BorderSide(
-                    color: isDark ? Colors.grey[900]! : Colors.grey[200]!,
+                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                     width: 1,
                   ),
                 ),
