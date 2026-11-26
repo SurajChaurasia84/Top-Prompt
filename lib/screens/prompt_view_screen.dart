@@ -6,6 +6,7 @@ import '../services/favorites_service.dart';
 import '../services/history_service.dart';
 import 'package:external_app_launcher/external_app_launcher.dart';
 import '../constants/ad_constants.dart';
+import '../constants/app_theme.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class PromptViewScreen extends StatefulWidget {
@@ -437,7 +438,7 @@ class _PromptViewScreenState extends State<PromptViewScreen> with SingleTickerPr
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF9F9F9),
+          isDark ? AppColors.darkBackground : AppColors.lightBackground,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -476,11 +477,14 @@ class _PromptViewScreenState extends State<PromptViewScreen> with SingleTickerPr
         top: false,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                 // ── Image ──
                 if (imageUrl.isNotEmpty) ...[
                   GestureDetector(
@@ -807,68 +811,74 @@ class _PromptViewScreenState extends State<PromptViewScreen> with SingleTickerPr
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Suggestions Grid
-                _isLoadingSuggestions
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24.0),
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0000)),
-                          ),
-                        ),
-                      )
-                    : _suggestedPrompts.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24.0),
-                              child: Text(
-                                'No similar prompts found',
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          )
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Left column
-                              Expanded(
-                                child: Column(
-                                  children: _getLeftColumnSuggestions()
-                                      .map((doc) => _SuggestionCard(
-                                            doc: doc,
-                                            isFavorite: _favorites.contains(doc['docId']),
-                                            onToggleFavorite: _toggleSuggestionFavorite,
-                                            onRefresh: _loadFavorites,
-                                          ))
-                                      .toList(),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Right column
-                              Expanded(
-                                child: Column(
-                                  children: _getRightColumnSuggestions()
-                                      .map((doc) => _SuggestionCard(
-                                            doc: doc,
-                                            isFavorite: _favorites.contains(doc['docId']),
-                                            onToggleFavorite: _toggleSuggestionFavorite,
-                                            onRefresh: _loadFavorites,
-                                          ))
-                                      .toList(),
-                                ),
-                              ),
-                            ],
-                          ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
-        ),
+
+          // Suggestions Grid
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: _isLoadingSuggestions
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF0000)),
+                      ),
+                    ),
+                  )
+                : _suggestedPrompts.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Text(
+                            'No similar prompts found',
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Left column
+                          Expanded(
+                            child: Column(
+                              children: _getLeftColumnSuggestions()
+                                  .map((doc) => _SuggestionCard(
+                                        doc: doc,
+                                        isFavorite: _favorites.contains(doc['docId']),
+                                        onToggleFavorite: _toggleSuggestionFavorite,
+                                        onRefresh: _loadFavorites,
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          // Right column
+                          Expanded(
+                            child: Column(
+                              children: _getRightColumnSuggestions()
+                                  .map((doc) => _SuggestionCard(
+                                        doc: doc,
+                                        isFavorite: _favorites.contains(doc['docId']),
+                                        onToggleFavorite: _toggleSuggestionFavorite,
+                                        onRefresh: _loadFavorites,
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+          ),
+          const SizedBox(height: 30),
+        ],
       ),
+    ),
+  ),
       if (_isLoadingAd)
             Positioned.fill(
               child: Container(
@@ -915,7 +925,7 @@ class _PromptViewScreenState extends State<PromptViewScreen> with SingleTickerPr
               alignment: Alignment.center,
               width: _bannerAd!.size.width.toDouble(),
               height: _bannerAd!.size.height.toDouble(),
-              color: isDark ? const Color(0xFF0F0F0F) : Colors.white,
+              color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
               child: AdWidget(ad: _bannerAd!),
             )
           : null,
@@ -1002,7 +1012,7 @@ class _SuggestionCard extends StatelessWidget {
         onRefresh();
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1C1C1C) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -1019,39 +1029,38 @@ class _SuggestionCard extends StatelessWidget {
           children: [
             // ── Image ──
             if (imageUrl.isNotEmpty)
-              AspectRatio(
-                aspectRatio: 1.0,
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (ctx, child, progress) {
-                    if (progress == null) return child;
-                    return Container(
-                      color: isDark
-                          ? const Color(0xFF2A2A2A)
-                          : Colors.grey[100],
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFFFF0000)),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  errorBuilder: (ctx, err, st) => Container(
+              Image.network(
+                imageUrl,
+                width: double.infinity,
+                fit: BoxFit.fitWidth,
+                loadingBuilder: (ctx, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
                     color: isDark
                         ? const Color(0xFF2A2A2A)
-                        : Colors.grey[200],
-                    height: 120,
+                        : Colors.grey[100],
+                    padding: const EdgeInsets.symmetric(vertical: 30),
                     child: const Center(
-                      child: Icon(Icons.broken_image_outlined,
-                          color: Colors.grey, size: 28),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFFFF0000)),
+                        ),
+                      ),
                     ),
+                  );
+                },
+                errorBuilder: (ctx, err, st) => Container(
+                  color: isDark
+                      ? const Color(0xFF2A2A2A)
+                      : Colors.grey[200],
+                  padding: const EdgeInsets.symmetric(vertical: 30),
+                  child: const Center(
+                    child: Icon(Icons.broken_image_outlined,
+                        color: Colors.grey, size: 28),
                   ),
                 ),
               )
